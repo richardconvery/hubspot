@@ -1,0 +1,54 @@
+// Update Region From State
+// Used for DealerClub
+
+const hubspot = require('@hubspot/api-client');
+
+exports.main = async (event, callback) => {
+  	const hubspotClient = new hubspot.Client ({
+      accessToken: process.env.UpdateSalesRegion
+    });
+
+    // Define the mapping of states to regions
+    const regionMapping = {
+        'Northeast': ['ME', 'NH', 'VT', 'MA', 'RI', 'CT', 'NY', 'NJ', 'MD', 'DE', 'PA', 'OH'],
+        'Southeast': ['KY', 'WV', 'VA', 'NC', 'SC', 'GA', 'FL', 'AL', 'MS', 'LA', 'TN', 'AR'],
+        'Texas-West': ['TX', 'NM', 'AZ', 'CA', 'OR', 'WA', 'ID', 'MT', 'WY', 'CO', 'NV', 'UT', 'HI'],
+        'Central': ['ND', 'SD', 'NE', 'KS', 'OK', 'MO', 'IA', 'MN', 'WI', 'IL', 'IN', 'MI']
+    };
+
+    // Function to determine the sales region based on the state
+    function determineRegion(state) {
+        for (let region in regionMapping) {
+            if (regionMapping[region].includes(state)) {
+                return region;
+            }
+        }
+        return 'Unknown'; // Default region if state does not match
+    }
+
+    // Extract the state from the event input properties
+    const state = event.inputFields['state'];
+
+    // Get the sales region
+    const salesRegion = determineRegion(state);
+
+    // Prepare the output properties
+    const outputProperties = {
+        sales_region: salesRegion
+    };
+
+    // Update the contact in HubSpot
+    try {
+        const objectId = event.object.objectId;
+        const objectType = event.object.objectType;
+
+        await hubspotClient.crm.companies.basicApi.update(objectId, {
+            properties: outputProperties
+        });
+
+        callback({ outputFields: { 'Sales Region Updated': 'Yes' } });
+    } catch (error) {
+        console.error('Error updating contact:', error);
+        callback({ outputFields: { 'Sales Region Updated': 'No', 'Error': error.message } });
+    }
+};
